@@ -1,0 +1,150 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metro Manila Traffic Navigation</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <style>
+        #map { height: 600px; width: 100%; }
+        #search-bar { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<h2>Metro Manila Traffic Navigation</h2>
+<p>Search for a start and end location to get directions between two places in Metro Manila.</p>
+
+<!-- Search Bar for Start and End Location -->
+<div id="search-bar">
+    <input type="text" id="start-search" placeholder="Search for Start Location" />
+    <input type="text" id="end-search" placeholder="Search for End Location" />
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+    // Initialize the map centered in Metro Manila
+    var map = L.map('map').setView([14.5995, 120.9842], 12);  // Coordinates of Metro Manila center
+
+    // Add the OpenStreetMap tile layer to the map
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Define the locations of major areas in Metro Manila (latitude, longitude)
+    var locations = {
+        "Manila": [14.5995, 120.9842],
+        "Makati": [14.5547, 121.0244],
+        "Quezon City": [14.6749, 121.0551],
+        "Taguig": [14.5449, 121.0509],
+        "Pasig": [14.5763, 121.0851],
+        "Caloocan": [14.6335, 120.9773],
+        "Mandaluyong": [14.5796, 121.0261],
+        "Parañaque": [14.5044, 120.9973]
+        // Add more places as needed...
+    };
+
+    // Add markers for each location
+    for (var city in locations) {
+        var latlng = locations[city];
+        L.marker(latlng)
+            .addTo(map)
+            .bindPopup(city);  // When clicked, show the city name and directions
+    }
+
+    // Initialize Routing Control (for directions)
+    var routeControl = L.Routing.control({
+        waypoints: [],
+        router: L.Routing.osrmv1(), // Use OpenRouteService or OSRM
+        routeWhileDragging: true,
+        createMarker: function() { return null; }, // Don't display markers on the route
+        lineOptions: {
+            styles: [{ color: 'red', weight: 4 }]  // Style the route with a red line
+        },
+        language: 'en',
+        units: 'metric'
+    }).addTo(map);
+
+    // Function to update the route when the start or end location is selected
+    function updateRoute() {
+        if (start && end) {
+            routeControl.setWaypoints([start, end]);  // Set the new waypoints
+        }
+    }
+
+    // Variables to store start and end points
+    var start, end;
+
+    // Search functionality (geocoder)
+    var geocoder = L.Control.Geocoder.nominatim({
+        geocode: function(query, cb) {
+            var results = [];
+            // Search for locations within Metro Manila
+            for (var city in locations) {
+                if (city.toLowerCase().includes(query.toLowerCase())) {
+                    results.push({
+                        name: city,
+                        center: locations[city],
+                        bounds: L.latLngBounds(locations[city], locations[city]),
+                    });
+                }
+            }
+            cb(results);
+        }
+    });
+
+    // Add search bar controls for start and end locations
+    var startSearch = L.Control.geocoder({
+        collapsed: true,
+        placeholder: "Search for Start Location",
+        geocoder: geocoder,
+        errorMessage: "Location not found"
+    }).addTo(map);
+
+    var endSearch = L.Control.geocoder({
+        collapsed: true,
+        placeholder: "Search for End Location",
+        geocoder: geocoder,
+        errorMessage: "Location not found"
+    }).addTo(map);
+
+    // Listen for selection in the start search
+    startSearch.on('markgeocode', function(e) {
+        start = e.geocode.center; // Set the start location
+        updateRoute(); // Update the route if both start and end locations are set
+    });
+
+    // Listen for selection in the end search
+    endSearch.on('markgeocode', function(e) {
+        end = e.geocode.center; // Set the end location
+        updateRoute(); // Update the route if both start and end locations are set
+    });
+
+    // Listen to changes in the routing control
+    routeControl.on('routesfound', function(e) {
+        var routes = e.routes;
+        var summary = routes[0].summary;
+        var totalDistance = summary.totalDistance / 1000;  // Convert meters to kilometers
+        var totalTime = summary.totalTime / 60;  // Convert seconds to minutes
+
+        // Display route details (distance and estimated time)
+        alert("Total Distance: " + totalDistance.toFixed(2) + " km\n" +
+              "Estimated Time: " + totalTime.toFixed(2) + " minutes");
+
+        // Show turn-by-turn directions in the console (or UI)
+        routes[0].instructions.forEach(function(instruction, index) {
+            console.log((index + 1) + ". " + instruction.text);  // Log the directions
+        });
+    });
+
+</script>
+
+</body>
+</html>
